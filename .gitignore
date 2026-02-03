@@ -1,0 +1,43 @@
+# ─── Python byte-compiled ───
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+
+# ─── Virtual environments ───
+capstone/
+venv/
+.venv/
+env/
+Tourism.venv/
+
+# ─── API keys / secrets ───
+.env
+.env.local
+.env.*
+!.env.example
+
+# ─── IDE / Editor ───
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ─── Claude Code ───
+.claude/
+
+# ─── OS junk ───
+.DS_Store
+Thumbs.db
+desktop.ini
+nul
+
+# ─── Jupyter ───
+.ipynb_checkpoints/
+
+# ─── Model cache ───
+.cache/
