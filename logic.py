@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- CONFIGURATION ---
-API_KEY = os.environ.get("GEMINI_API_KEY", "PASTE_YOUR_KEY_HERE")
+API_KEY = os.environ.get("GOOGLE_API_KEY", "PASTE_YOUR_KEY_HERE")
 
 
 def load_data():

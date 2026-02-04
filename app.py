@@ -172,6 +172,41 @@ def build_map(
 # SIDEBAR — User Controls
 # ─────────────────────────────────────────────────────────────────────────────
 with st.sidebar:
+    # ── API Key Resolution (3-tier priority) ──
+    st.header("🔑 API Configuration")
+
+    _auto_key = None
+    _key_source = None
+
+    # Priority 1: Streamlit Secrets (.streamlit/secrets.toml)
+    try:
+        _auto_key = st.secrets["GOOGLE_API_KEY"]
+        _key_source = "Streamlit Secrets"
+    except (FileNotFoundError, KeyError):
+        pass
+
+    # Priority 2: Environment Variable
+    if not _auto_key:
+        _auto_key = os.environ.get("GOOGLE_API_KEY")
+        if _auto_key:
+            _key_source = "Environment Variable"
+
+    # Priority 3: Manual sidebar input (fallback)
+    if _auto_key:
+        st.success(f"API Key loaded from {_key_source}")
+        api_key = _auto_key
+    else:
+        api_key = st.text_input(
+            "Enter Gemini API Key:",
+            type="password",
+            help="Get a free key at https://aistudio.google.com/apikey",
+        )
+        if not api_key:
+            st.warning("Paste your Gemini API Key to enable AI travel advice.")
+
+    st.divider()
+
+    # ── Preferences ──
     st.header("🔍 Your Preferences")
     st.caption("Describe what you want — the AI understands meaning, not just keywords.")
 
@@ -261,9 +296,12 @@ if search_clicked and user_query.strip():
         # ── Gemini AI Advice (in sidebar) ──
         with advice_container:
             st.subheader("🤖 AI Travel Advice")
-            with st.spinner("Asking Gemini..."):
-                advice = generate_ai_advice(results, user_query.strip())
-            st.info(advice)
+            if api_key:
+                with st.spinner("Asking Gemini..."):
+                    advice = generate_ai_advice(results, user_query.strip(), api_key=api_key)
+                st.info(advice)
+            else:
+                st.warning("Enter an API key in the sidebar to get AI travel advice.")
 
 elif search_clicked:
     st.warning("✍️ Please describe what kind of experience you are looking for.")

@@ -19,20 +19,14 @@ Author : AI Engineering Lead
 Version: 2.0 (Semantic Upgrade)
 """
 
-import os
 import pandas as pd
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from google import genai
-from dotenv import load_dotenv
-
-load_dotenv()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIGURATION
 # ─────────────────────────────────────────────────────────────────────────────
-API_KEY = os.environ.get("GEMINI_API_KEY", "PASTE_YOUR_KEY_HERE")
-
 REQUIRED_COLUMNS = [
     "Name", "Type", "Popularity_Score", "Indoors",
     "Description", "Reviews_Embed_Source", "Lat", "Lon",
@@ -499,7 +493,7 @@ class UAETourismEngine:
 # ═════════════════════════════════════════════════════════════════════════════
 # GEMINI LLM ADVICE — Waterfall Fallback System
 # ═════════════════════════════════════════════════════════════════════════════
-def generate_ai_advice(top_places: pd.DataFrame, user_query: str) -> str:
+def generate_ai_advice(top_places: pd.DataFrame, user_query: str, api_key: str) -> str:
     """
     Generate a persuasive travel recommendation using Google Gemini.
 
@@ -520,6 +514,8 @@ def generate_ai_advice(top_places: pd.DataFrame, user_query: str) -> str:
         The top recommended locations from semantic_search().
     user_query : str
         The user's original query, included in the prompt for context.
+    api_key : str
+        Google Gemini API key, passed by the caller (resolved in app.py).
 
     Returns
     -------
@@ -543,7 +539,7 @@ def generate_ai_advice(top_places: pd.DataFrame, user_query: str) -> str:
         f"what the tourist is looking for. Be specific about each place's unique appeal."
     )
 
-    client = genai.Client(api_key=API_KEY)
+    client = genai.Client(api_key=api_key)
 
     for i, model_name in enumerate(MODEL_PRIORITY):
         try:
@@ -584,6 +580,11 @@ def generate_ai_advice(top_places: pd.DataFrame, user_query: str) -> str:
 # STANDALONE TEST (run with: python ai_engine.py)
 # ═════════════════════════════════════════════════════════════════════════════
 if __name__ == "__main__":
+    import os
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
     print("=" * 60)
     print("  AI ENGINE — Standalone Test")
     print("=" * 60)
@@ -633,6 +634,17 @@ if __name__ == "__main__":
     assert len(map_data) == len(r), "Map data length mismatch"
     assert len(map_data[0]) == 3, "Map data should be [lat, lon, intensity]"
     print("   ✅ Map data format correct.")
+
+    # Test Gemini LLM (only if key available)
+    test_key = os.environ.get("GOOGLE_API_KEY", "")
+    if test_key:
+        print(f"\n{'─' * 60}")
+        print("  GEMINI LLM TEST")
+        print(f"{'─' * 60}")
+        advice = generate_ai_advice(r, "ocean kayaking", api_key=test_key)
+        print(f"   Gemini advice: {advice[:80]}...")
+    else:
+        print("\n   (Skipping Gemini test — GOOGLE_API_KEY not set)")
 
     print(f"\n{'=' * 60}")
     print("  ALL TESTS PASSED")
