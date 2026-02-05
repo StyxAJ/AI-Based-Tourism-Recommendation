@@ -522,11 +522,12 @@ def generate_ai_advice(top_places: pd.DataFrame, user_query: str, api_key: str) 
     str
         Either a Gemini-generated recommendation or a hardcoded backup.
     """
+    # Option 4: Skip straight to gemini-2.5-flash — it has better free-tier
+    # rate limits than the other models. The lite models often hit 429 errors
+    # on the free tier, wasting retries and user time.
     MODEL_PRIORITY = [
-        "gemini-2.0-flash-lite-001",
-        "gemini-2.0-flash-lite",
-        "gemini-2.0-flash",
-        "gemini-2.5-flash",
+        "gemini-2.5-flash",  # Best free-tier limits, try this first
+        "gemini-2.0-flash",  # Fallback if 2.5 unavailable
     ]
 
     names = ", ".join(top_places["Name"].tolist())

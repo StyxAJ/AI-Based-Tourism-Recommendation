@@ -79,6 +79,9 @@ if "search_query" not in st.session_state:
     st.session_state.search_query = ""
 if "ai_advice" not in st.session_state:
     st.session_state.ai_advice = None
+# Option 2: Cache AI responses to avoid repeat API calls for same query
+if "advice_cache" not in st.session_state:
+    st.session_state.advice_cache = {}  # {query_string: advice_text}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -233,6 +236,13 @@ with st.sidebar:
     with col2:
         avoid_heat = st.toggle("Stay Indoors", value=False, help="Only indoor locations")
 
+    # Option 1: Make AI advice optional to save API quota
+    enable_ai_advice = st.toggle(
+        "Enable AI Advice",
+        value=True,
+        help="Disable to save API quota. Search still works without it."
+    )
+
     search_clicked = st.button(
         "🚀 Find My Places",
         type="primary",
@@ -270,12 +280,22 @@ if search_clicked and user_query.strip():
     st.session_state.search_results = results
     st.session_state.search_query = user_query.strip()
 
-    # ── Pre-fetch Gemini advice (before any rendering) ──
-    if api_key and len(results) > 0:
+    # ── Pre-fetch Gemini advice (with caching + toggle) ──
+    query_key = user_query.strip().lower()  # Normalize for cache lookup
+
+    if not enable_ai_advice:
+        # Option 1: User disabled AI advice to save quota
+        st.session_state.ai_advice = None
+    elif query_key in st.session_state.advice_cache:
+        # Option 2: Return cached response (no API call)
+        st.session_state.ai_advice = st.session_state.advice_cache[query_key]
+    elif api_key and len(results) > 0:
+        # Fresh API call needed
         with st.spinner("Asking Gemini..."):
-            st.session_state.ai_advice = generate_ai_advice(
-                results, user_query.strip(), api_key=api_key
-            )
+            advice = generate_ai_advice(results, user_query.strip(), api_key=api_key)
+            st.session_state.ai_advice = advice
+            # Cache the response for future identical queries
+            st.session_state.advice_cache[query_key] = advice
     else:
         st.session_state.ai_advice = None
 
