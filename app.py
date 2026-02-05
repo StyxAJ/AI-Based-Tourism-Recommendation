@@ -71,6 +71,17 @@ engine = initialize_engine()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# SESSION STATE (persists across Streamlit reruns)
+# ─────────────────────────────────────────────────────────────────────────────
+if "search_results" not in st.session_state:
+    st.session_state.search_results = None
+if "search_query" not in st.session_state:
+    st.session_state.search_query = ""
+if "ai_advice" not in st.session_state:
+    st.session_state.ai_advice = None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # HELPER: Build the Folium map
 # ─────────────────────────────────────────────────────────────────────────────
 def build_map(
@@ -245,7 +256,7 @@ st.caption(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# MAIN LOGIC
+# MAIN LOGIC — Search (stores results in session_state)
 # ─────────────────────────────────────────────────────────────────────────────
 if search_clicked and user_query.strip():
     # ── Run semantic search ──
@@ -256,55 +267,77 @@ if search_clicked and user_query.strip():
             prefer_hidden_gems=prefer_hidden,
             avoid_heat=avoid_heat,
         )
+    st.session_state.search_results = results
+    st.session_state.search_query = user_query.strip()
 
-    if len(results) == 0:
-        st.warning(
-            "No locations matched your filters. "
-            "Try unchecking 'Stay Indoors' for more results."
-        )
+    # ── Pre-fetch Gemini advice (before any rendering) ──
+    if api_key and len(results) > 0:
+        with st.spinner("Asking Gemini..."):
+            st.session_state.ai_advice = generate_ai_advice(
+                results, user_query.strip(), api_key=api_key
+            )
     else:
-        # ── Heatmap ──
-        st.subheader("📍 Relevance Heat Map")
-        st.caption(
-            "Glow intensity = AI semantic relevance. "
-            "Brighter areas match your query more closely."
-        )
+        st.session_state.ai_advice = None
 
-        heat_data = engine.get_map_data(results)
-        m = build_map(heat_data=heat_data, results_df=results)
-        st_folium(m, use_container_width=True, height=520)
-
-        # ── Results Table ──
-        st.subheader("🏆 Top Recommendations")
-        display_df = results[
-            ["Name", "Type", "Semantic_Score", "Final_Relevance", "Description"]
-        ].copy()
-        display_df.index = range(1, len(display_df) + 1)  # 1-based ranking
-        display_df.index.name = "Rank"
-
-        st.dataframe(
-            display_df.style.format({
-                "Semantic_Score": "{:.3f}",
-                "Final_Relevance": "{:.3f}",
-            }).background_gradient(
-                subset=["Final_Relevance"],
-                cmap="YlOrRd",
-            ),
-            use_container_width=True,
-        )
-
-        # ── Gemini AI Advice (in sidebar) ──
-        with advice_container:
-            st.subheader("🤖 AI Travel Advice")
-            if api_key:
-                with st.spinner("Asking Gemini..."):
-                    advice = generate_ai_advice(results, user_query.strip(), api_key=api_key)
-                st.info(advice)
-            else:
-                st.warning("Enter an API key in the sidebar to get AI travel advice.")
+    # Force rerun to display fresh results
+    st.rerun()
 
 elif search_clicked:
     st.warning("✍️ Please describe what kind of experience you are looking for.")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RENDER — Display results from session_state (survives reruns)
+# ─────────────────────────────────────────────────────────────────────────────
+if st.session_state.search_results is not None and len(st.session_state.search_results) > 0:
+    results = st.session_state.search_results
+
+    # Show current search query for clarity
+    st.success(f"**Showing results for:** \"{st.session_state.search_query}\"")
+
+    # ── Heatmap ──
+    st.subheader("📍 Relevance Heat Map")
+    st.caption(
+        "Glow intensity = AI semantic relevance. "
+        "Brighter areas match your query more closely."
+    )
+
+    heat_data = engine.get_map_data(results)
+    m = build_map(heat_data=heat_data, results_df=results)
+    st_folium(m, use_container_width=True, height=520)
+
+    # ── Results Table ──
+    st.subheader("🏆 Top Recommendations")
+    display_df = results[
+        ["Name", "Type", "Semantic_Score", "Final_Relevance", "Description"]
+    ].copy()
+    display_df.index = range(1, len(display_df) + 1)  # 1-based ranking
+    display_df.index.name = "Rank"
+
+    st.dataframe(
+        display_df.style.format({
+            "Semantic_Score": "{:.3f}",
+            "Final_Relevance": "{:.3f}",
+        }).background_gradient(
+            subset=["Final_Relevance"],
+            cmap="YlOrRd",
+        ),
+        use_container_width=True,
+    )
+
+    # ── Gemini AI Advice (in sidebar) ──
+    with advice_container:
+        st.subheader("🤖 AI Travel Advice")
+        if st.session_state.ai_advice:
+            st.info(st.session_state.ai_advice)
+        elif not api_key:
+            st.warning("Enter an API key in the sidebar to get AI travel advice.")
+
+elif st.session_state.search_results is not None:
+    st.warning(
+        "No locations matched your filters. "
+        "Try unchecking 'Stay Indoors' for more results."
+    )
 
 else:
     # ── Default state: show all locations ──
